@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Nuvem com Chuva e Impacto</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Nuvem maior e centralizada */
+        .cloud-container {
+            position: absolute;
+            top: 40px;
+            width: 300px; /* Aumentada */
+            height: 90px;
+            background: white;
+            border-radius: 100px;
+            z-index: 10;
+            filter: blur(4px);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .cloud-container::after, .cloud-container::before {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+
+        .cloud-container::after {
+            width: 150px; height: 150px;
+            top: -70px; left: 40px;
+        }
+
+        .cloud-container::before {
+            width: 180px; height: 180px;
+            top: -100px; right: 30px;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cloud-container" id="cloud"></div>
+    <canvas id="rainCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('rainCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height, cloudXStart, cloudXEnd, floorY;
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        const fontSize = 18;
+        const rainDrops = [];
+        const bubbles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            
+            // Sincroniza a área da chuva com a posição da nuvem no CSS
+            const cloudWidth = 300;
+            cloudXStart = (width / 2) - (cloudWidth / 2) + 20;
+            cloudXEnd = (width / 2) + (cloudWidth / 2) - 20;
+            
+            // Define o "chão" (10% acima do final da tela)
+            floorY = height - 50;
+        }
+
+        class Drop {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.x = cloudXStart + Math.random() * (cloudXEnd - cloudXStart);
+                this.y = 100; // Começa dentro da nuvem
+                this.char = characters.charAt(Math.floor(Math.random() * characters.length));
+                this.speed = 3 + Math.random() * 4;
+            }
+
+            draw() {
+                ctx.fillStyle = '#00D9FF';
+                ctx.font = `bold ${fontSize}px monospace`;
+                ctx.fillText(this.char, this.x, this.y);
+            }
+
+            update() {
+                this.y += this.speed;
+
+                // Se encostar no chão transparente
+                if (this.y >= floorY) {
+                    createBubble(this.x, floorY);
+                    this.init();
+                }
+            }
+        }
+
+        class Bubble {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 2;
+                this.maxRadius = 15;
+                this.opacity = 1;
+                this.life = 800; // 0.8 segundos
+                this.startTime = Date.now();
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 217, 255, ${this.opacity})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.closePath();
+            }
+
+            update() {
+                let elapsed = Date.now() - this.startTime;
+                let progress = elapsed / this.life;
+
+                this.radius = progress * this.maxRadius;
+                this.opacity = 1 - progress;
+
+                return elapsed < this.life;
+            }
+        }
+
+        function createBubble(x, y) {
+            bubbles.push(new Bubble(x, y));
+        }
+
+        function initScene() {
+            resize();
+            for (let i = 0; i < 40; i++) {
+                rainDrops.push(new Drop());
+            }
+        }
+
+        function animate() {
+            // Limpa o fundo (Garante que não haja rastro)
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, width, height);
+
+            // Desenha e atualiza as gotas
+            rainDrops.forEach(drop => {
+                drop.update();
+                drop.draw();
+            });
+
+            // Desenha e atualiza as bolhas (removendo as que "morreram")
+            for (let i = bubbles.length - 1; i >= 0; i--) {
+                const alive = bubbles[i].update();
+                if (alive) {
+                    bubbles[i].draw();
+                } else {
+                    bubbles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        initScene();
+        animate();
+    </script>
+</body>
+</html>
